@@ -2,7 +2,7 @@
 
 Fastify API + Prisma + MongoDB. Public `/v1` and admin `/v1/admin`. Shared DTOs in `packages/shared/`.
 
-Companion storefront repo: [may-flower-fe](https://github.com/huynhnguyenv2/may-flower-fe).
+Storefront: sibling [`../may-flower-fe/`](../may-flower-fe/) · GitHub [may-flower-fe](https://github.com/huynhnguyenv2/may-flower-fe). Planning docs: [`../`](../) (workspace root).
 
 ## Prerequisites
 
