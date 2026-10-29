@@ -1,0 +1,14 @@
+---
+description: May Flower backend API conventions (Fastify, Prisma, admin + public)
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend API (`backend/`)
+
+- Extend existing Fastify app in `src/app.ts`; public routes stay under `/v1`, admin under `/v1/admin`.
+- Business logic lives in `src/services/**`, not in route handlers.
+- Validate with Zod; share public DTOs via `@may-flower/shared`.
+- Follow `BUSINESS_RULES.md` for stock, orders, and payments.
+- Add Vitest tests using `buildApp()` and `app.inject()`.
+- See `BACKEND_IMPLEMENTATION_ROADMAP.md` for phase order.

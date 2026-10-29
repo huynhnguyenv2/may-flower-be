@@ -1,0 +1,17 @@
+{
+  "name": "may-flower-be",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @may-flower/api dev",
+    "build": "pnpm run -r build",
+    "test": "pnpm --filter @may-flower/api test",
+    "db:up": "docker compose up -d mongo",
+    "db:push": "pnpm --filter @may-flower/api exec prisma db push",
+    "db:migrate": "pnpm db:push",
+    "db:seed": "pnpm --filter @may-flower/api db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

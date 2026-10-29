@@ -1,0 +1,407 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum CollectionKind {
+  emotional
+  signature
+  seasonal
+}
+
+enum OrderStatus {
+  pending_payment
+  confirmed
+  in_production
+  out_for_delivery
+  delivered
+  cancelled
+}
+
+enum OrderChannel {
+  web
+  manual
+}
+
+enum StaffRole {
+  owner
+  manager
+  florist
+  delivery
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  RESERVE
+  RELEASE
+  WASTE
+  ADJUST
+}
+
+enum PurchaseOrderStatus {
+  draft
+  ordered
+  partial
+  received
+  cancelled
+}
+
+enum ProductionTaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+model Collection {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  slug      String         @unique
+  title     String
+  story     String
+  mood      String
+  palette   String
+  imageUrl  String?
+  kind      CollectionKind
+  sortOrder Int            @default(0)
+  active    Boolean        @default(true)
+  products  ProductCollection[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug        String   @unique
+  name        String
+  story       String
+  description String
+  imageUrl    String?
+  active      Boolean  @default(true)
+  featured    Boolean  @default(false)
+  variants    ProductVariant[]
+  collections ProductCollection[]
+  tags        ProductEmotionalTag[]
+  recipes     BouquetRecipe[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductVariant {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  productId         String      @db.ObjectId
+  product           Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku               String      @unique
+  sizeLabel         String
+  priceVnd          Int
+  availableQuantity Int         @default(0)
+  active            Boolean     @default(true)
+  orderItems        OrderItem[]
+  stockReservations StockReservation[]
+}
+
+model ProductCollection {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  productId    String     @db.ObjectId
+  collectionId String     @db.ObjectId
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, collectionId])
+}
+
+model EmotionalTag {
+  id       String                @id @default(auto()) @map("_id") @db.ObjectId
+  slug     String                @unique
+  label    String
+  products ProductEmotionalTag[]
+}
+
+model ProductEmotionalTag {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  productId String       @db.ObjectId
+  tagId     String       @db.ObjectId
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       EmotionalTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, tagId])
+}
+
+model DeliveryZone {
+  id     String         @id @default(auto()) @map("_id") @db.ObjectId
+  slug   String         @unique
+  name   String
+  feeVnd Int
+  active Boolean        @default(true)
+  slots  DeliverySlot[]
+}
+
+model DeliverySlot {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  zoneId      String       @db.ObjectId
+  zone        DeliveryZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  date        DateTime
+  startTime   String
+  endTime     String
+  capacity    Int
+  bookedCount Int          @default(0)
+  orders      Order[]
+
+  @@index([zoneId, date])
+}
+
+model Customer {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  name   String
+  email  String?
+  phone  String
+  orders Order[]
+}
+
+model User {
+  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
+  email              String              @unique
+  passwordHash       String
+  name               String
+  roles              StaffRole[]
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  auditEvents        AuditEvent[]        @relation("AuditActor")
+  refreshTokens      RefreshToken[]
+  floristAssignments FloristAssignment[]
+}
+
+model RefreshToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuditEvent {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorId    String?  @db.ObjectId
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  action     String
+  entityType String
+  entityId   String?
+  payload    Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Flower {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug          String   @unique
+  name          String
+  unit          String
+  shelfLifeDays Int?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Material {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug      String   @unique
+  name      String
+  unit      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Supplier {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  phone          String?
+  email          String?
+  active         Boolean         @default(true)
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model PurchaseOrder {
+  id         String              @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId String              @db.ObjectId
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  status     PurchaseOrderStatus @default(draft)
+  lines      PurchaseOrderLine[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseOrderId String        @db.ObjectId
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  description     String
+  quantity        Int
+  unitCostVnd     Int
+}
+
+model InventoryBatch {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  refType     String
+  refId       String
+  lotCode     String?
+  quantity    Int
+  unitCostVnd Int
+  expiresAt   DateTime?
+  createdAt   DateTime        @default(now())
+  movements   StockMovement[]
+
+  @@index([refType, refId])
+}
+
+model StockMovement {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  batchId   String?           @db.ObjectId
+  batch     InventoryBatch?   @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type      StockMovementType
+  quantity  Int
+  reason    String?
+  refType   String?
+  refId     String?
+  createdAt DateTime          @default(now())
+
+  @@index([refType, refId])
+}
+
+model StockReservation {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  orderItemId      String         @unique @db.ObjectId
+  orderItem        OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  productVariantId String         @db.ObjectId
+  variant          ProductVariant @relation(fields: [productVariantId], references: [id])
+  quantity         Int
+  status           String         @default("active")
+  createdAt        DateTime       @default(now())
+  releasedAt       DateTime?
+}
+
+model WasteRecord {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  batchId   String?  @db.ObjectId
+  quantity  Int
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model BouquetRecipe {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  productId String       @db.ObjectId
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  version   Int          @default(1)
+  active    Boolean      @default(true)
+  items     RecipeItem[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([productId, version])
+}
+
+model RecipeItem {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  recipeId  String        @db.ObjectId
+  recipe    BouquetRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  itemType  String
+  itemRefId String
+  quantity  Float
+}
+
+model ProductionTask {
+  id            String               @id @default(auto()) @map("_id") @db.ObjectId
+  orderId       String               @unique @db.ObjectId
+  order         Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status        ProductionTaskStatus @default(pending)
+  scheduledAt   DateTime?
+  assignments   FloristAssignment[]
+  qualityChecks QualityCheck[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model FloristAssignment {
+  id     String         @id @default(auto()) @map("_id") @db.ObjectId
+  taskId String         @db.ObjectId
+  task   ProductionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String         @db.ObjectId
+  user   User           @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+}
+
+model QualityCheck {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String         @db.ObjectId
+  task      ProductionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  passed    Boolean
+  notes     String?
+  photoUrl  String?
+  createdAt DateTime       @default(now())
+}
+
+model Order {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber     String       @unique
+  status          OrderStatus  @default(pending_payment)
+  channel         OrderChannel @default(web)
+  customerId      String       @db.ObjectId
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  recipientJson   Json
+  deliveryZoneId  String       @db.ObjectId
+  deliverySlotId  String       @db.ObjectId
+  deliverySlot    DeliverySlot @relation(fields: [deliverySlotId], references: [id])
+  deliveryFeeVnd  Int
+  subtotalVnd     Int
+  totalVnd        Int
+  messageCard     String?
+  idempotencyKey  String?      @unique
+  items           OrderItem[]
+  productionTask  ProductionTask?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model OrderItem {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  orderId          String         @db.ObjectId
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId String         @db.ObjectId
+  variant          ProductVariant @relation(fields: [productVariantId], references: [id])
+  productName      String
+  variantLabel     String
+  unitPriceVnd     Int
+  quantity         Int
+  stockReservation StockReservation?
+}
+
+model ConciergeSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  answers   Json?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PaymentWebhookEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider    String
+  eventId     String
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}

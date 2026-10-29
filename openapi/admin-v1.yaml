@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: May Flower Admin API
+  version: 0.1.0
+  description: Staff and management API (to be implemented by backend agent)
+servers:
+  - url: http://localhost:3101/v1/admin
+paths:
+  /auth/login:
+    post:
+      summary: Staff login (planned)
+      responses:
+        "501":
+          description: Not implemented yet
+  /products:
+    get:
+      summary: List products for management (planned)
+      responses:
+        "501":
+          description: Not implemented yet
+  /orders:
+    get:
+      summary: Order inbox (planned)
+      responses:
+        "501":
+          description: Not implemented yet

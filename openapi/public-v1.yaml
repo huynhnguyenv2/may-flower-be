@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: May Flower Public API
+  version: 1.0.0
+  description: Public storefront API for Vietnam launch
+servers:
+  - url: http://localhost:3101/v1
+paths:
+  /collections:
+    get:
+      summary: List collections
+      operationId: listCollections
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CollectionSummary"
+  /collections/{slug}:
+    get:
+      summary: Get collection
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not found
+  /products:
+    get:
+      summary: List products
+      parameters:
+        - name: collection
+          in: query
+          schema:
+            type: string
+        - name: feeling
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: string
+        - name: maxPrice
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /products/{slug}:
+    get:
+      summary: Get product
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not found
+  /concierge/sessions:
+    post:
+      summary: Create concierge session
+      responses:
+        "201":
+          description: Created
+  /concierge/sessions/{id}/recommend:
+    post:
+      summary: Recommend bouquets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeAnswers"
+      responses:
+        "200":
+          description: Recommendations
+  /delivery/zones:
+    get:
+      summary: List delivery zones
+      responses:
+        "200":
+          description: OK
+  /delivery/slots:
+    get:
+      summary: List delivery slots
+      parameters:
+        - name: zone
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: OK
+  /orders:
+    post:
+      summary: Create order
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Created
+        "409":
+          description: Availability conflict
+  /orders/{orderNumber}:
+    get:
+      summary: Get order by public number
+      parameters:
+        - name: orderNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    CollectionSummary:
+      type: object
+      required: [slug, title, kind, mood, palette]
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        story:
+          type: string
+        kind:
+          type: string
+          enum: [emotional, signature, seasonal]
+        mood:
+          type: string
+        palette:
+          type: string
+    ConciergeAnswers:
+      type: object
+      properties:
+        recipient:
+          type: string
+        occasion:
+          type: string
+        feeling:
+          type: string
+        budgetVnd:
+          type: string
+        colors:
+          type: string
+        deliveryDate:
+          type: string
+          format: date
+    CreateOrderRequest:
+      type: object
+      required: [customer, recipient, items, deliveryZoneSlug, deliverySlotId]
+      properties:
+        customer:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+            phone:
+              type: string
+        recipient:
+          type: object
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              variantId:
+                type: string
+              quantity:
+                type: integer
+        messageCard:
+          type: string
+        deliveryZoneSlug:
+          type: string
+        deliverySlotId:
+          type: string
