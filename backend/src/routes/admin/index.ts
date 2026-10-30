@@ -8,6 +8,10 @@ import * as adminOrders from "../../services/admin-orders.js";
 import * as adminSupport from "../../services/admin-support.js";
 import * as adminAssistant from "../../services/admin-assistant.js";
 import * as adminCustomRequests from "../../services/admin-custom-order-requests.js";
+import * as adminDashboard from "../../services/admin-dashboard.js";
+import * as adminCustomers from "../../services/admin-customers.js";
+import * as adminFlowers from "../../services/admin-flowers.js";
+import * as adminAddons from "../../services/admin-addons.js";
 import * as inventory from "../../services/inventory/stock.js";
 import * as auth from "../../services/auth.js";
 import { AppError } from "../../lib/errors.js";
@@ -92,11 +96,31 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     }));
 
     secured.get(
+      "/dashboard",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async () => ({ data: await adminDashboard.getAdminDashboard() }),
+    );
+
+    secured.get(
       "/orders",
       { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist, StaffRole.delivery) },
       async (req) => {
-        const status = (req.query as { status?: OrderStatus }).status;
-        return { data: await adminOrders.listAdminOrders({ status }) };
+        const query = req.query as {
+          status?: OrderStatus;
+          q?: string;
+          limit?: string;
+          offset?: string;
+        };
+        const limit = query.limit ? parseInt(query.limit, 10) : undefined;
+        const offset = query.offset ? parseInt(query.offset, 10) : undefined;
+        return {
+          data: await adminOrders.listAdminOrders({
+            status: query.status,
+            q: query.q,
+            limit,
+            offset,
+          }),
+        };
       },
     );
 
@@ -212,6 +236,168 @@ export async function registerAdminRoutes(app: FastifyInstance) {
           const data = await adminCustomRequests.updateCustomOrderRequestStatus(
             req.params.id,
             parsed.data.status,
+            req.staffUser!.id,
+          );
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.post<{ Params: { id: string } }>(
+      "/custom-order-requests/:id/convert",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          const data = await adminCustomRequests.convertCustomOrderRequestToOrder(
+            req.params.id,
+            req.staffUser!.id,
+          );
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.get(
+      "/customers",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req) => {
+        const query = req.query as { q?: string; limit?: string };
+        return {
+          data: await adminCustomers.listAdminCustomers({
+            q: query.q,
+            limit: query.limit ? parseInt(query.limit, 10) : undefined,
+          }),
+        };
+      },
+    );
+
+    secured.get<{ Params: { id: string } }>(
+      "/customers/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req, reply) => {
+        try {
+          return { data: await adminCustomers.getAdminCustomer(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.get(
+      "/flowers",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async () => ({ data: await adminFlowers.listAdminFlowers() }),
+    );
+
+    secured.get<{ Params: { id: string } }>(
+      "/flowers/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req, reply) => {
+        try {
+          return { data: await adminFlowers.getAdminFlower(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.post(
+      "/flowers",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          const data = await adminFlowers.createAdminFlower(req.body, req.staffUser!.id);
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.patch<{ Params: { id: string } }>(
+      "/flowers/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          const data = await adminFlowers.updateAdminFlower(
+            req.params.id,
+            req.body,
+            req.staffUser!.id,
+          );
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.get(
+      "/addons",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async () => ({ data: await adminAddons.listAdminAddons() }),
+    );
+
+    secured.get<{ Params: { id: string } }>(
+      "/addons/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req, reply) => {
+        try {
+          return { data: await adminAddons.getAdminAddon(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.post(
+      "/addons",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          const data = await adminAddons.createAdminAddon(req.body, req.staffUser!.id);
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.patch<{ Params: { id: string } }>(
+      "/addons/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          const data = await adminAddons.updateAdminAddon(
+            req.params.id,
+            req.body,
             req.staffUser!.id,
           );
           return { data };

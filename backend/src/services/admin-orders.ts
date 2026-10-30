@@ -14,25 +14,56 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 };
 
-export async function listAdminOrders(filters: { status?: OrderStatus; limit?: number }) {
-  const orders = await prisma.order.findMany({
-    where: filters.status ? { status: filters.status } : undefined,
-    orderBy: { createdAt: "desc" },
-    take: filters.limit ?? 50,
-    include: { items: true, customer: true },
-  });
+export async function listAdminOrders(filters: {
+  status?: OrderStatus;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const take = Math.min(filters.limit ?? 50, 100);
+  const skip = filters.offset ?? 0;
+  const q = filters.q?.trim();
 
-  return orders.map((o) => ({
-    id: o.id,
-    orderNumber: o.orderNumber,
-    status: o.status,
-    channel: o.channel,
-    customerName: o.customer.name,
-    customerPhone: o.customer.phone,
-    totalVnd: vndToString(o.totalVnd),
-    createdAt: o.createdAt.toISOString(),
-    itemCount: o.items.length,
-  }));
+  const where = {
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(q
+      ? {
+          OR: [
+            { orderNumber: { contains: q.toUpperCase() } },
+            { customer: { phone: { contains: q } } },
+            { customer: { name: { contains: q } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where: Object.keys(where).length ? where : undefined,
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+      include: { items: true, customer: true },
+    }),
+    prisma.order.count({
+      where: Object.keys(where).length ? where : undefined,
+    }),
+  ]);
+
+  return {
+    items: orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      status: o.status,
+      channel: o.channel,
+      customerName: o.customer.name,
+      customerPhone: o.customer.phone,
+      totalVnd: vndToString(o.totalVnd),
+      createdAt: o.createdAt.toISOString(),
+      itemCount: o.items.length,
+    })),
+    total,
+  };
 }
 
 export async function getAdminOrder(orderId: string) {
@@ -42,19 +73,28 @@ export async function getAdminOrder(orderId: string) {
   });
   if (!order) throw new AppError("NOT_FOUND", "Không tìm thấy đơn", 404);
 
+  const timeline = await prisma.auditEvent.findMany({
+    where: { entityType: "Order", entityId: order.id },
+    orderBy: { createdAt: "asc" },
+    include: { actor: { select: { name: true } } },
+  });
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
     channel: order.channel,
+    customerId: order.customerId,
     customerName: order.customer.name,
     customerPhone: order.customer.phone,
     customerEmail: order.customer.email,
+    recipient: order.recipientJson,
     totalVnd: vndToString(order.totalVnd),
     subtotalVnd: vndToString(order.subtotalVnd),
     deliveryFeeVnd: vndToString(order.deliveryFeeVnd),
     messageCard: order.messageCard,
     createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
     deliverySlot: {
       date: order.deliverySlot.date.toISOString().slice(0, 10),
       startTime: order.deliverySlot.startTime,
@@ -67,6 +107,14 @@ export async function getAdminOrder(orderId: string) {
       variantLabel: i.variantLabel,
       quantity: i.quantity,
       unitPriceVnd: vndToString(i.unitPriceVnd),
+      lineTotalVnd: vndToString(i.unitPriceVnd * i.quantity),
+    })),
+    timeline: timeline.map((t) => ({
+      id: t.id,
+      action: t.action,
+      payload: t.payload,
+      actorName: t.actor?.name ?? null,
+      createdAt: t.createdAt.toISOString(),
     })),
   };
 }

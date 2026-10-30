@@ -18,6 +18,9 @@ paths:
   /me:
     get:
       summary: Current staff profile
+  /dashboard:
+    get:
+      summary: Operations dashboard KPIs and alerts
   /orders:
     get:
       summary: Order inbox
@@ -27,6 +30,35 @@ paths:
   /orders/{id}/status:
     patch:
       summary: Transition order status (audited)
+  /custom-order-requests/{id}/convert:
+    post:
+      summary: Convert approved AI request to order
+  /customers:
+    get:
+      summary: Customer directory
+  /customers/{id}:
+    get:
+      summary: Customer profile with history
+  /flowers:
+    get:
+      summary: Flower catalog
+    post:
+      summary: Create flower
+  /flowers/{id}:
+    get:
+      summary: Flower detail
+    patch:
+      summary: Update flower
+  /addons:
+    get:
+      summary: Add-on catalog
+    post:
+      summary: Create add-on
+  /addons/{id}:
+    get:
+      summary: Add-on detail
+    patch:
+      summary: Update add-on
   /products:
     get:
       summary: Products with variants and ATP

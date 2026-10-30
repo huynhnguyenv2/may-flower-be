@@ -103,7 +103,8 @@ export async function getOrderForStaff(orderNumber: string) {
 }
 
 export async function listOrdersForStaff(filters: { status?: OrderStatus; limit?: number }) {
-  return listAdminOrders(filters);
+  const { items } = await listAdminOrders(filters);
+  return items;
 }
 
 export { listLowStockVariants };
