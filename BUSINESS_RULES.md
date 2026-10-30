@@ -27,6 +27,7 @@ Full operational rules live with the management system; these apply to the publi
 ## Concierge recommendations
 
 - Only recommend **active** products with at least one variant `availableQuantity > 0` within budget.
+- When `OPENAI_API_KEY` is set, ChatGPT picks tiers **only** from server-loaded catalog candidates; invalid IDs are dropped. On API failure or missing key, **rule-based** tiers apply (`source`: `openai` | `rules`).
 - Return exactly three tiers when possible: Safe (mid budget, popular), Signature (brand hero), Unexpected (distinct mood/color match).
 
 ## AI imagery

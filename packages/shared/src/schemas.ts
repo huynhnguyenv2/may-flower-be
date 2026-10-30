@@ -57,6 +57,8 @@ export const recommendationTierSchema = z.object({
   product: productSummarySchema,
   variantId: z.string(),
   priceVnd: moneyVndSchema,
+  /** Short Vietnamese note from ChatGPT when AI concierge is enabled */
+  rationale: z.string().optional(),
 });
 
 export const deliveryZoneSchema = z.object({
