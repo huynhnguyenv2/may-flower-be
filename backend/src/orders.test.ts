@@ -12,6 +12,28 @@ describe("public API", () => {
     }
   });
 
+  it("support chat session and message", async () => {
+    const app = await buildApp();
+    const create = await app.inject({
+      method: "POST",
+      url: "/v1/support/sessions",
+      payload: { locale: "vi" },
+    });
+    expect(create.statusCode).toBe(201);
+    const { data: session } = create.json() as { data: { id: string } };
+
+    const msg = await app.inject({
+      method: "POST",
+      url: `/v1/support/sessions/${session.id}/messages`,
+      payload: { content: "Phí giao hàng ở Hải Châu?" },
+    });
+    expect(msg.statusCode).toBe(200);
+    const body = msg.json() as { data: { message: string; source: string } };
+    expect(body.data.message.length).toBeGreaterThan(10);
+    expect(["openai", "rules"]).toContain(body.data.source);
+    await app.close();
+  });
+
   it("lists collections", async () => {
     const app = await buildApp();
     const res = await app.inject({ method: "GET", url: "/v1/collections" });

@@ -152,6 +152,8 @@ async function main() {
   await prisma.collection.deleteMany();
   await prisma.emotionalTag.deleteMany();
   await prisma.deliveryZone.deleteMany();
+  await prisma.supportMessage.deleteMany();
+  await prisma.supportSession.deleteMany();
   await prisma.conciergeSession.deleteMany();
 
   for (const t of tags) {

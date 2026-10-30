@@ -97,6 +97,34 @@ paths:
       responses:
         "200":
           description: Recommendations
+  /support/sessions:
+    post:
+      summary: Create support chat session
+      responses:
+        "201":
+          description: Created
+  /support/sessions/{id}/messages:
+    post:
+      summary: Send support chat message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+      responses:
+        "200":
+          description: Assistant reply
   /delivery/zones:
     get:
       summary: List delivery zones

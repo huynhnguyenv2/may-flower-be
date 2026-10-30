@@ -2,12 +2,15 @@ import type { FastifyInstance } from "fastify";
 import {
   conciergeAnswersSchema,
   createOrderRequestSchema,
+  supportCreateSessionSchema,
+  supportSendMessageSchema,
 } from "@may-flower/shared";
 import { AppError, errorPayload } from "../lib/errors.js";
 import * as catalog from "../services/catalog.js";
 import * as concierge from "../services/concierge.js";
 import * as delivery from "../services/delivery.js";
 import * as orders from "../services/orders.js";
+import * as support from "../services/support.js";
 import { prisma } from "../lib/prisma.js";
 
 export async function registerV1Routes(app: FastifyInstance) {
@@ -48,6 +51,29 @@ export async function registerV1Routes(app: FastifyInstance) {
     const result = await concierge.recommend(req.params.id, parsed.data);
     if (!result) {
       return reply.status(404).send(errorPayload("SESSION_EXPIRED", "Phiên tư vấn đã hết hạn"));
+    }
+    return { data: result };
+  });
+
+  app.post("/support/sessions", async (req, reply) => {
+    const parsed = supportCreateSessionSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send(errorPayload("VALIDATION_ERROR", "Dữ liệu không hợp lệ", parsed.error.issues));
+    }
+    const session = await support.createSession(parsed.data.locale ?? "vi");
+    return reply.status(201).send({
+      data: { id: session.id, expiresAt: session.expiresAt.toISOString(), locale: session.locale },
+    });
+  });
+
+  app.post<{ Params: { id: string } }>("/support/sessions/:id/messages", async (req, reply) => {
+    const parsed = supportSendMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(errorPayload("VALIDATION_ERROR", "Dữ liệu không hợp lệ", parsed.error.issues));
+    }
+    const result = await support.sendMessage(req.params.id, parsed.data.content);
+    if (!result) {
+      return reply.status(404).send(errorPayload("SESSION_EXPIRED", "Phiên chat đã hết hạn"));
     }
     return { data: result };
   });
