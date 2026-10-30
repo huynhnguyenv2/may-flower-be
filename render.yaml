@@ -1,0 +1,26 @@
+# Render Blueprint — Web Service (NOT Static Site).
+# Dashboard: New → Blueprint → connect repo, or paste these settings manually.
+
+services:
+  - type: web
+    name: may-flower-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PAYMENT_MODE
+        value: dev_skip
+      - key: ADMIN_SEED_EMAIL
+        value: owner@mayflower.vn
+      - key: ADMIN_SEED_PASSWORD
+        sync: false

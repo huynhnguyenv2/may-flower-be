@@ -37,6 +37,31 @@ pnpm dev
 pnpm test
 ```
 
+## Deploy on Render
+
+**Use a Web Service — not a Static Site.** Static Site expects a `build/` publish folder; this API is Node (Fastify).
+
+| Setting | Value |
+|--------|--------|
+| **Root Directory** | `.` (repo root) |
+| **Build Command** | `pnpm install --frozen-lockfile && pnpm build` |
+| **Start Command** | `pnpm start` |
+| **Publish Directory** | *(leave empty — not used)* |
+
+**Environment variables:** `DATABASE_URL` (MongoDB Atlas `mongodb+srv://...`), `JWT_SECRET`, `PAYMENT_MODE=dev_skip`, `ADMIN_SEED_*`.
+
+After first deploy, from your machine (with Atlas reachable):
+
+```bash
+DATABASE_URL="mongodb+srv://..." pnpm db:push
+DATABASE_URL="mongodb+srv://..." pnpm db:seed
+```
+
+Health check: `https://<service>.onrender.com/health` → `{"ok":true}`.  
+Public API base: `https://<service>.onrender.com/v1` → set as `NEXT_PUBLIC_API_URL` on Vercel.
+
+Optional: import repo via **`render.yaml`** (Blueprint) in this repo.
+
 ## Docs
 
 - [openapi/public-v1.yaml](./openapi/public-v1.yaml)
