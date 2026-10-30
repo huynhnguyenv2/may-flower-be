@@ -25,6 +25,39 @@ enum OrderStatus {
 enum OrderChannel {
   web
   manual
+  custom_request
+}
+
+enum FloristSessionStatus {
+  collecting
+  recommending
+  selecting
+  customizing
+  addons
+  reviewing
+  submitted
+}
+
+enum FlowerDesignConceptStatus {
+  draft
+  offered
+  selected
+  rejected
+}
+
+enum CustomOrderRequestStatus {
+  pending_review
+  approved
+  declined
+  cancelled
+  converted
+}
+
+enum MaterialKind {
+  wrapping
+  ribbon
+  greenery
+  other
 }
 
 enum StaffRole {
@@ -155,11 +188,12 @@ model DeliverySlot {
 }
 
 model Customer {
-  id     String  @id @default(auto()) @map("_id") @db.ObjectId
-  name   String
-  email  String?
-  phone  String
-  orders Order[]
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  email              String?
+  phone              String
+  orders             Order[]
+  customOrderRequests CustomOrderRequest[]
 }
 
 model User {
@@ -207,6 +241,10 @@ model Flower {
   slug          String   @unique
   name          String
   unit          String
+  unitPriceVnd  Int      @default(0)
+  colorTags     String[] @default([])
+  seasonalFrom  Int?
+  seasonalTo    Int?
   shelfLifeDays Int?
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -214,13 +252,28 @@ model Flower {
 }
 
 model Material {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  slug      String   @unique
-  name      String
-  unit      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  slug         String       @unique
+  name         String
+  unit         String
+  unitPriceVnd Int          @default(0)
+  kind         MaterialKind @default(other)
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Addon {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug          String   @unique
+  name          String
+  category      String
+  priceVnd      Int
+  imageUrl      String?
+  occasionTags  String[] @default([])
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Supplier {
@@ -395,6 +448,112 @@ model ConciergeSession {
   answers   Json?
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model FloristSession {
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  locale              String               @default("vi")
+  status              FloristSessionStatus @default(collecting)
+  expiresAt           DateTime
+  recoveryToken       String?              @unique
+  preferencesJson     Json?
+  selectedConceptId   String?              @db.ObjectId
+  configurationJson   Json?
+  selectedAddonsJson  Json?
+  pricingSnapshotJson Json?
+  conceptBatchCount   Int                  @default(0)
+  deliveryZoneSlug    String?
+  deliverySlotId      String?
+  messageCard         String?
+  instructions        String?
+  confirmedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  messages            FloristMessage[]
+  concepts            FlowerDesignConcept[]
+  customOrderRequests CustomOrderRequest[]
+
+  @@index([expiresAt])
+}
+
+model FloristMessage {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId    String         @db.ObjectId
+  session      FloristSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role         String
+  content      String
+  toolCallsJson Json?
+  createdAt    DateTime       @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model FlowerDesignConcept {
+  id                    String                    @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId             String                    @db.ObjectId
+  session               FloristSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  batchId               String
+  version               Int                       @default(1)
+  name                  String
+  descriptionVi         String
+  compositionJson       Json
+  palette               String
+  style                 String
+  sizeHint              String
+  estimatedSubtotalVnd  Int
+  status                FlowerDesignConceptStatus @default(offered)
+  images                GeneratedDesignImage[]
+  createdAt             DateTime                  @default(now())
+
+  @@index([sessionId, batchId])
+}
+
+model GeneratedDesignImage {
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  conceptId   String              @db.ObjectId
+  concept     FlowerDesignConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  storageUrl  String
+  provider    String              @default("openai")
+  model       String
+  prompt      String
+  disclaimer  String
+  illustrative Boolean            @default(true)
+  createdAt   DateTime            @default(now())
+}
+
+model CustomOrderRequest {
+  id                  String                   @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber       String                   @unique
+  status              CustomOrderRequestStatus @default(pending_review)
+  sessionId           String                   @db.ObjectId
+  session             FloristSession           @relation(fields: [sessionId], references: [id])
+  customerId          String                   @db.ObjectId
+  customer            Customer                 @relation(fields: [customerId], references: [id])
+  recipientJson       Json
+  deliveryZoneId      String?                  @db.ObjectId
+  deliverySlotId      String?                  @db.ObjectId
+  deliveryFeeVnd      Int?
+  messageCard         String?
+  instructions        String?
+  conversationSummary String?
+  configurationJson   Json
+  pricingJson         Json
+  referenceImageUrl   String?
+  idempotencyKey      String?                  @unique
+  convertedOrderId    String?                  @db.ObjectId
+  addons              CustomOrderRequestAddon[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+}
+
+model CustomOrderRequestAddon {
+  id            String             @id @default(auto()) @map("_id") @db.ObjectId
+  requestId     String             @db.ObjectId
+  request       CustomOrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  addonId       String             @db.ObjectId
+  name          String
+  unitPriceVnd  Int
+  quantity      Int
 }
 
 model SupportSession {

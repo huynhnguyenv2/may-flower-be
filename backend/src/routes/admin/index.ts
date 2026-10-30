@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { OrderStatus, StaffRole } from "@prisma/client";
+import { CustomOrderRequestStatus, OrderStatus, StaffRole } from "@prisma/client";
 import { z } from "zod";
 import { errorPayload } from "../../lib/errors.js";
 import { requireRoles, requireStaffAuth } from "../../middleware/admin-auth.js";
@@ -7,6 +7,8 @@ import * as adminCatalog from "../../services/admin-catalog.js";
 import * as adminOrders from "../../services/admin-orders.js";
 import * as adminSupport from "../../services/admin-support.js";
 import * as adminAssistant from "../../services/admin-assistant.js";
+import * as adminCustomRequests from "../../services/admin-custom-order-requests.js";
+import * as inventory from "../../services/inventory/stock.js";
 import * as auth from "../../services/auth.js";
 import { AppError } from "../../lib/errors.js";
 
@@ -21,6 +23,15 @@ const refreshSchema = z.object({
 
 const statusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
+});
+
+const customRequestStatusSchema = z.object({
+  status: z.nativeEnum(CustomOrderRequestStatus),
+});
+
+const stockAdjustSchema = z.object({
+  delta: z.number().int().min(-9999).max(9999).refine((n) => n !== 0),
+  reason: z.string().max(200).optional(),
 });
 
 const assistantChatSchema = z.object({
@@ -89,6 +100,21 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       },
     );
 
+    secured.get<{ Params: { id: string } }>(
+      "/orders/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist, StaffRole.delivery) },
+      async (req, reply) => {
+        try {
+          return { data: await adminOrders.getAdminOrder(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
     secured.patch<{ Params: { id: string } }>(
       "/orders/:id/status",
       { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
@@ -117,6 +143,85 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       "/products",
       { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
       async () => ({ data: await adminCatalog.listAdminProducts() }),
+    );
+
+    secured.get(
+      "/inventory/low-stock",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async () => ({ data: await inventory.listLowStockVariants() }),
+    );
+
+    secured.patch<{ Params: { id: string } }>(
+      "/variants/:id/stock",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        const parsed = stockAdjustSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return reply.status(400).send(errorPayload("VALIDATION_ERROR", "Dữ liệu không hợp lệ"));
+        }
+        try {
+          const data = await inventory.adjustVariantStock({
+            variantId: req.params.id,
+            delta: parsed.data.delta,
+            reason: parsed.data.reason,
+            actorId: req.staffUser!.id,
+          });
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.get(
+      "/custom-order-requests",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req) => {
+        const status = (req.query as { status?: CustomOrderRequestStatus }).status;
+        return { data: await adminCustomRequests.listCustomOrderRequests(status) };
+      },
+    );
+
+    secured.get<{ Params: { id: string } }>(
+      "/custom-order-requests/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req, reply) => {
+        try {
+          return { data: await adminCustomRequests.getCustomOrderRequest(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.patch<{ Params: { id: string } }>(
+      "/custom-order-requests/:id/status",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        const parsed = customRequestStatusSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return reply.status(400).send(errorPayload("VALIDATION_ERROR", "Status không hợp lệ"));
+        }
+        try {
+          const data = await adminCustomRequests.updateCustomOrderRequestStatus(
+            req.params.id,
+            parsed.data.status,
+            req.staffUser!.id,
+          );
+          return { data };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
     );
 
     secured.get(

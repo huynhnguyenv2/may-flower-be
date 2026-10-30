@@ -3,6 +3,7 @@ import { vndToString } from "@may-flower/shared";
 import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import { recordAudit } from "./audit.js";
+import { consumeStockOnOrderConfirm, releaseStockOnOrderCancel } from "./orders-stock.js";
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending_payment: ["confirmed", "cancelled"],
@@ -34,6 +35,42 @@ export async function listAdminOrders(filters: { status?: OrderStatus; limit?: n
   }));
 }
 
+export async function getAdminOrder(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true, customer: true, deliverySlot: true, productionTask: true },
+  });
+  if (!order) throw new AppError("NOT_FOUND", "Không tìm thấy đơn", 404);
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    channel: order.channel,
+    customerName: order.customer.name,
+    customerPhone: order.customer.phone,
+    customerEmail: order.customer.email,
+    totalVnd: vndToString(order.totalVnd),
+    subtotalVnd: vndToString(order.subtotalVnd),
+    deliveryFeeVnd: vndToString(order.deliveryFeeVnd),
+    messageCard: order.messageCard,
+    createdAt: order.createdAt.toISOString(),
+    deliverySlot: {
+      date: order.deliverySlot.date.toISOString().slice(0, 10),
+      startTime: order.deliverySlot.startTime,
+      endTime: order.deliverySlot.endTime,
+    },
+    productionStatus: order.productionTask?.status ?? null,
+    items: order.items.map((i) => ({
+      id: i.id,
+      productName: i.productName,
+      variantLabel: i.variantLabel,
+      quantity: i.quantity,
+      unitPriceVnd: vndToString(i.unitPriceVnd),
+    })),
+  };
+}
+
 export async function updateOrderStatus(
   orderId: string,
   nextStatus: OrderStatus,
@@ -51,16 +88,28 @@ export async function updateOrderStatus(
     );
   }
 
+  if (nextStatus === "cancelled") {
+    await releaseStockOnOrderCancel(orderId);
+  }
+
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: { status: nextStatus },
   });
 
   if (nextStatus === "confirmed" && order.status === "pending_payment") {
+    await consumeStockOnOrderConfirm(orderId);
     await prisma.productionTask.upsert({
       where: { orderId: order.id },
       create: { orderId: order.id, status: "pending" },
       update: {},
+    });
+  }
+
+  if (nextStatus === "cancelled") {
+    await prisma.productionTask.updateMany({
+      where: { orderId: order.id, status: { not: "cancelled" } },
+      data: { status: "cancelled" },
     });
   }
 

@@ -1,6 +1,10 @@
 import { vndToString } from "@may-flower/shared";
 import { prisma } from "../lib/prisma.js";
 import { completeChat, type ChatMessage } from "./llm/openai-client.js";
+import * as catalog from "./catalog.js";
+import * as orders from "./orders.js";
+
+const ORDER_NUMBER_RE = /\bMF\d{6,}\b/i;
 
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_HISTORY = 14;
@@ -41,6 +45,15 @@ async function buildSupportContext(locale: "vi" | "en"): Promise<string> {
 
   const collectionLines = collections.map((c) => `- ${c.title} (/collections/${c.slug})`).join("\n");
 
+  const featured = await catalog.listFeaturedProducts(6);
+  const inStock = featured.filter((p) => p.isAvailable);
+  const productLines = inStock
+    .map(
+      (p) =>
+        `- ${p.name}: from ${p.fromPriceVnd} VND (${p.availabilityLabel}) → /products/${p.slug}`,
+    )
+    .join("\n");
+
   if (locale === "en") {
     return `May Flower Studio — premium florist in Da Nang, Vietnam.
 Website paths: /collections (catalog), /find-your-flowers (AI bouquet wizard), /cart, /journal.
@@ -48,8 +61,10 @@ Delivery zones (Da Nang):
 ${zoneLines || "- See checkout for zones"}
 Collections:
 ${collectionLines || "- Browse /collections"}
+Featured in stock (live catalog):
+${productLines || "- See /collections"}
 Rules: Prices in VND (integers). Do not invent products or prices. For bouquet picks, suggest /find-your-flowers.
-Order issues: ask for order number and phone; you cannot access orders — offer to note for staff callback.
+If the customer gives an order number (MF…), you may state status and total from the order lookup block when present.
 Payment: online checkout; dev sites may skip payment. Be warm, concise, honest.`;
   }
 
@@ -59,12 +74,28 @@ Khu vực giao hàng (Đà Nẵng):
 ${zoneLines || "- Xem khi checkout"}
 Bộ sưu tập:
 ${collectionLines || "- Xem /collections"}
+Hoa nổi bật còn tồn (catalog thật):
+${productLines || "- Xem /collections"}
 Quy tắc: Giá VND (số nguyên). Không bịa sản phẩm hay giá. Gợi ý chọn hoa → /find-your-flowers.
-Đơn hàng: hỏi mã đơn + SĐT; bạn không tra được đơn — ghi nhận để studio gọi lại.
+Nếu khách gửi mã đơn MF…, dùng khối tra đơn bên dưới (nếu có) để nói trạng thái và tổng tiền.
 Thanh toán: checkout online. Trả lời ấm áp, ngắn gọn, trung thực.`;
 }
 
-function fallbackReply(content: string, locale: "vi" | "en"): string {
+async function orderLookupBlock(content: string, locale: "vi" | "en"): Promise<string> {
+  const match = content.match(ORDER_NUMBER_RE);
+  if (!match) return "";
+  const order = await orders.getOrderByNumber(match[0].toUpperCase());
+  if (!order) {
+    return locale === "en"
+      ? `\nOrder lookup: ${match[0].toUpperCase()} not found.`
+      : `\nTra đơn: không thấy ${match[0].toUpperCase()}.`;
+  }
+  return locale === "en"
+    ? `\nOrder lookup: ${order.orderNumber} status=${order.status}, total=${order.totalVnd} VND, items=${order.items.length}.`
+    : `\nTra đơn: ${order.orderNumber} trạng thái=${order.status}, tổng=${order.totalVnd} VND, ${order.items.length} dòng.`;
+}
+
+async function fallbackReply(content: string, locale: "vi" | "en"): Promise<string> {
   const text = content.toLowerCase();
 
   const has = (...words: string[]) => words.some((w) => text.includes(w));
@@ -85,8 +116,16 @@ function fallbackReply(content: string, locale: "vi" | "en"): string {
     return "Studio giao tại các quận Đà Nẵng — phí giao hiện khi checkout theo khu vực. Bạn chọn khung giờ giao lúc đặt hàng nhé.";
   if (has("giá", "bao nhiêu", "vnd", "tiền"))
     return "Giá từng bó nằm trên catalog (VND, minh bạch). Vào Bộ sưu tập hoặc Tìm hoa cho bạn để gợi ý theo ngân sách.";
-  if (has("đơn", "order", "mã", "trạng thái"))
-    return "Bạn gửi mã đơn + SĐT đặt hàng — team sẽ kiểm tra và phản hồi. Đặt mới: thêm giỏ → Checkout.";
+  if (has("đơn", "order", "mã", "trạng thái")) {
+    const match = content.match(ORDER_NUMBER_RE);
+    if (match) {
+      const order = await orders.getOrderByNumber(match[0].toUpperCase());
+      if (order) {
+        return `Đơn ${order.orderNumber}: trạng thái ${order.status}, tổng ${order.totalVnd} VND. Cần đổi giờ giao? Nhắn SĐT đặt hàng để team hỗ trợ.`;
+      }
+    }
+    return "Bạn gửi mã đơn (MF…) — mình tra trạng thái ngay. Đặt mới: thêm giỏ → Checkout.";
+  }
   if (has("hoa", "bó", "tặng", "gợi ý", "chọn"))
     return "Bạn thử Tìm hoa cho bạn (/find-your-flowers): vài câu hỏi — gợi ý từ hoa thật còn tồn kho.";
   return "Chào bạn! Mình hỗ trợ May Flower Đà Nẵng — hỏi về giao hàng, giá, chọn hoa, hoặc vào /find-your-flowers để được gợi ý nhé.";
@@ -99,7 +138,7 @@ export async function sendMessage(sessionId: string, content: string) {
   const locale = session.locale === "en" ? "en" : "vi";
   const trimmed = content.trim().slice(0, 2000);
   if (!trimmed) {
-    return { source: "rules" as const, message: fallbackReply("help", locale) };
+    return { source: "rules" as const, message: await fallbackReply("help", locale) };
   }
 
   await prisma.supportMessage.create({
@@ -113,10 +152,11 @@ export async function sendMessage(sessionId: string, content: string) {
   history.push({ role: "user", content: trimmed });
 
   const system = await buildSupportContext(locale);
+  const orderBlock = await orderLookupBlock(trimmed, locale);
   const llmMessages: ChatMessage[] = [
     {
       role: "system",
-      content: `${system}\nReply in ${locale === "en" ? "English" : "Vietnamese"}. Plain text only, no markdown links — mention paths like /find-your-flowers.`,
+      content: `${system}${orderBlock}\nReply in ${locale === "en" ? "English" : "Vietnamese"}. Plain text only, no markdown links — mention paths like /find-your-flowers.`,
     },
     ...history.slice(-MAX_HISTORY),
   ];
@@ -126,7 +166,7 @@ export async function sendMessage(sessionId: string, content: string) {
 
   if (!reply) {
     source = "rules";
-    reply = fallbackReply(trimmed, locale);
+    reply = await fallbackReply(trimmed, locale);
   }
 
   await prisma.supportMessage.create({

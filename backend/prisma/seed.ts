@@ -1,15 +1,15 @@
-import { PrismaClient, CollectionKind } from "@prisma/client";
+import { MaterialKind, PrismaClient, CollectionKind } from "@prisma/client";
 import {
   DA_NANG_COLLECTION_IMAGES,
   DA_NANG_DELIVERY_ZONES,
   DA_NANG_PRODUCT_IMAGES,
-  pexelsPhoto,
+  mediaPhoto,
 } from "@may-flower/shared";
 import { ensureSeedOwner } from "../src/services/auth.js";
 
 const prisma = new PrismaClient();
 
-const pexels = (id: number) => pexelsPhoto(id, 900);
+const catalogImage = (ref: Parameters<typeof mediaPhoto>[0]) => mediaPhoto(ref, 900);
 
 const emotionalCollections = [
   {
@@ -18,7 +18,7 @@ const emotionalCollections = [
     story: "Khoảng cách không làm phai một lời nhớ — gửi điều dịu dàng nhất.",
     mood: "nhớ nhung",
     palette: "#C4A484",
-    imageUrl: pexels(DA_NANG_COLLECTION_IMAGES["nho-ban"]!),
+    imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES["nho-ban"]!),
     kind: CollectionKind.emotional,
   },
   {
@@ -27,7 +27,7 @@ const emotionalCollections = [
     story: "Một lời cảm ơn chân thành, gói trong sắc hoa ấm áp.",
     mood: "tri ân",
     palette: "#E8B4B8",
-    imageUrl: pexels(DA_NANG_COLLECTION_IMAGES["cam-on"]!),
+    imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES["cam-on"]!),
     kind: CollectionKind.emotional,
   },
   {
@@ -36,7 +36,7 @@ const emotionalCollections = [
     story: "Niềm vui nhỏ cũng đáng được tôn vinh.",
     mood: "vui tươi",
     palette: "#F4A261",
-    imageUrl: pexels(DA_NANG_COLLECTION_IMAGES["mung-nho"]!),
+    imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES["mung-nho"]!),
     kind: CollectionKind.emotional,
   },
   {
@@ -45,7 +45,7 @@ const emotionalCollections = [
     story: "Hoa không nói thay lời bạn — nhưng giúp lời xin lỗi chân thành hơn.",
     mood: "chân thành",
     palette: "#9B8BAA",
-    imageUrl: pexels(DA_NANG_COLLECTION_IMAGES["xin-loi"]!),
+    imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES["xin-loi"]!),
     kind: CollectionKind.emotional,
   },
   {
@@ -54,7 +54,7 @@ const emotionalCollections = [
     story: "Không cần dịp — chỉ cần muốn làm ai đó mỉm cười.",
     mood: "nhẹ nhàng",
     palette: "#A7C4A0",
-    imageUrl: pexels(DA_NANG_COLLECTION_IMAGES["vi-the-thoi"]!),
+    imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES["vi-the-thoi"]!),
     kind: CollectionKind.emotional,
   },
 ];
@@ -73,7 +73,7 @@ const products = [
     name: "Bình minh dịu",
     story: "Hướng dương và cúc họa mi — ấm áp như ánh sáng đầu ngày.",
     description: "Bó hoa tươi với hướng dương, cúc họa mi và lá eucalyptus. Phù hợp gửi lời nhớ hoặc cảm ơn.",
-    imageUrl: pexels(DA_NANG_PRODUCT_IMAGES["binh-minh-ua"]!),
+    imageUrl: catalogImage(DA_NANG_PRODUCT_IMAGES["binh-minh-ua"]!),
     featured: true,
     tagSlugs: ["nho-ban", "cam-on"],
     collectionSlugs: ["nho-ban", "cam-on"],
@@ -88,7 +88,7 @@ const products = [
     name: "Lời xin lỗi chậm",
     story: "Tím lavender và hồng pastel — dịu và thành thật.",
     description: "Sắc tím nhẹ và hồng phấn, gói giấy kraft cao cấp.",
-    imageUrl: pexels(DA_NANG_PRODUCT_IMAGES["loi-xin-loi-cham"]!),
+    imageUrl: catalogImage(DA_NANG_PRODUCT_IMAGES["loi-xin-loi-cham"]!),
     featured: true,
     tagSlugs: ["xin-loi"],
     collectionSlugs: ["xin-loi"],
@@ -102,7 +102,7 @@ const products = [
     name: "Niềm vui nhỏ",
     story: "Mix màu tươi — như tiếng cười bất chợt.",
     description: "Hoa mùa mix, phong cách tự nhiên, ribbon satin.",
-    imageUrl: pexels(DA_NANG_PRODUCT_IMAGES["niem-vui-nho"]!),
+    imageUrl: catalogImage(DA_NANG_PRODUCT_IMAGES["niem-vui-nho"]!),
     featured: true,
     tagSlugs: ["mung", "vi-thuong"],
     collectionSlugs: ["mung-nho", "vi-the-thoi"],
@@ -116,7 +116,7 @@ const products = [
     name: "Chữ ký Studio",
     story: "Composition độc quyền của May Flower — hoa nhập và hoa Việt.",
     description: "Bó signature với rose Ecuador, cỏ vẩn và wrapping editorial.",
-    imageUrl: pexels(DA_NANG_PRODUCT_IMAGES["chua-ky-studio"]!),
+    imageUrl: catalogImage(DA_NANG_PRODUCT_IMAGES["chua-ky-studio"]!),
     featured: true,
     tagSlugs: ["cam-on", "mung"],
     collectionSlugs: ["cam-on", "mung-nho"],
@@ -130,7 +130,7 @@ const products = [
     name: "Đêm lặng",
     story: "Tông trầm bất ngờ — dành cho ai thích khác biệt tinh tế.",
     description: "Hoa tối màu, lá xám-xanh, phong cách moody editorial.",
-    imageUrl: pexels(DA_NANG_PRODUCT_IMAGES["dem-lang"]!),
+    imageUrl: catalogImage(DA_NANG_PRODUCT_IMAGES["dem-lang"]!),
     featured: false,
     tagSlugs: ["nho-ban", "vi-thuong"],
     collectionSlugs: ["nho-ban", "vi-the-thoi"],
@@ -140,7 +140,39 @@ const products = [
   },
 ];
 
+const floristFlowers = [
+  { slug: "hoa-hong-ecuador", name: "Hồng Ecuador", unit: "bông", unitPriceVnd: 85_000, colorTags: ["hồng", "pink", "đỏ"] },
+  { slug: "hoa-cuc-hoa-mi", name: "Cúc họa mi", unit: "bông", unitPriceVnd: 25_000, colorTags: ["trắng", "white"] },
+  { slug: "hoa-huong-duong", name: "Hướng dương", unit: "bông", unitPriceVnd: 35_000, colorTags: ["vàng", "yellow"] },
+  { slug: "hoa-cam-tu-cau", name: "Cẩm tú cầu", unit: "bông", unitPriceVnd: 120_000, colorTags: ["xanh", "hồng", "trắng"] },
+  { slug: "hoa-lan-dendro", name: "Lan dendro", unit: "cành", unitPriceVnd: 95_000, colorTags: ["tím", "trắng"] },
+  { slug: "hoa-thom", name: "Hoa hồng thơm", unit: "bông", unitPriceVnd: 45_000, colorTags: ["hồng", "trắng"] },
+];
+
+const floristMaterials = [
+  { slug: "giay-kraft-premium", name: "Giấy kraft cao cấp", unit: "gói", unitPriceVnd: 45_000, kind: MaterialKind.wrapping },
+  { slug: "ribbon-satin", name: "Ruy băng satin", unit: "met", unitPriceVnd: 15_000, kind: MaterialKind.ribbon },
+  { slug: "eucalyptus", name: "Lá eucalyptus", unit: "bó", unitPriceVnd: 55_000, kind: MaterialKind.greenery },
+];
+
+const floristAddons = [
+  { slug: "chocolate-box", name: "Hộp socola", category: "gift", priceVnd: 250_000, occasionTags: ["sinh nhật", "mung"] },
+  { slug: "greeting-card", name: "Thiệp chúc mừng", category: "card", priceVnd: 45_000, occasionTags: ["cảm ơn", "sinh nhật"] },
+  { slug: "teddy-small", name: "Gấu bông nhỏ", category: "gift", priceVnd: 320_000, occasionTags: ["sinh nhật", "tình yêu"] },
+  { slug: "premium-vase", name: "Bình gốm cao cấp", category: "vase", priceVnd: 480_000, occasionTags: ["cảm ơn"] },
+  { slug: "balloon-set", name: "Bó bay trang trí", category: "decor", priceVnd: 180_000, occasionTags: ["sinh nhật", "mung"] },
+];
+
 async function main() {
+  await prisma.customOrderRequestAddon.deleteMany();
+  await prisma.customOrderRequest.deleteMany();
+  await prisma.generatedDesignImage.deleteMany();
+  await prisma.flowerDesignConcept.deleteMany();
+  await prisma.floristMessage.deleteMany();
+  await prisma.floristSession.deleteMany();
+  await prisma.addon.deleteMany();
+  await prisma.flower.deleteMany();
+  await prisma.material.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.customer.deleteMany();
@@ -174,7 +206,7 @@ async function main() {
       story: "Những thiết kế đặc trưng của studio.",
       mood: "editorial",
       palette: "#5C4033",
-      imageUrl: pexels(DA_NANG_COLLECTION_IMAGES.signature!),
+      imageUrl: catalogImage(DA_NANG_COLLECTION_IMAGES.signature!),
       kind: CollectionKind.signature,
       sortOrder: 10,
     },
@@ -253,8 +285,18 @@ async function main() {
     }
   }
 
+  for (const f of floristFlowers) {
+    await prisma.flower.create({ data: f });
+  }
+  for (const m of floristMaterials) {
+    await prisma.material.create({ data: m });
+  }
+  for (const a of floristAddons) {
+    await prisma.addon.create({ data: a });
+  }
+
   await ensureSeedOwner();
-  console.log("Seed completed (catalog + staff owner).");
+  console.log("Seed completed (catalog + florist catalog + staff owner).");
 }
 
 main()

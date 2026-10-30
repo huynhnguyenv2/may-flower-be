@@ -10,10 +10,13 @@ import * as catalog from "../services/catalog.js";
 import * as concierge from "../services/concierge.js";
 import * as delivery from "../services/delivery.js";
 import * as orders from "../services/orders.js";
+import { consumeStockOnOrderConfirm } from "../services/orders-stock.js";
 import * as support from "../services/support.js";
 import { prisma } from "../lib/prisma.js";
+import { registerFloristRoutes } from "./florist.js";
 
 export async function registerV1Routes(app: FastifyInstance) {
+  await registerFloristRoutes(app);
   app.get("/collections", async () => ({ data: await catalog.listCollections() }));
 
   app.get<{ Params: { slug: string } }>("/collections/:slug", async (req, reply) => {
@@ -127,10 +130,21 @@ export async function registerV1Routes(app: FastifyInstance) {
     }
 
     if (body.orderNumber) {
-      await prisma.order.updateMany({
+      const pending = await prisma.order.findFirst({
         where: { orderNumber: body.orderNumber, status: "pending_payment" },
-        data: { status: "confirmed" },
       });
+      if (pending) {
+        await prisma.order.update({
+          where: { id: pending.id },
+          data: { status: "confirmed" },
+        });
+        await consumeStockOnOrderConfirm(pending.id);
+        await prisma.productionTask.upsert({
+          where: { orderId: pending.id },
+          create: { orderId: pending.id, status: "pending" },
+          update: {},
+        });
+      }
     }
 
     return reply.send({ data: { received: true } });

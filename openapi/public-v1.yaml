@@ -73,9 +73,51 @@ paths:
           description: OK
         "404":
           description: Not found
+  /florist/sessions:
+    post:
+      summary: Create AI Florist session
+      responses:
+        "201":
+          description: Created
+  /florist/sessions/{id}:
+    get:
+      summary: Recover florist session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session payload
+  /florist/sessions/{id}/messages:
+    post:
+      summary: Send florist chat message (tool-backed)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assistant reply with optional effects
+  /florist/sessions/{id}/submit:
+    post:
+      summary: Submit custom order request (pending_review)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Request created
   /concierge/sessions:
     post:
-      summary: Create concierge session
+      summary: Create concierge session (legacy)
       responses:
         "201":
           description: Created

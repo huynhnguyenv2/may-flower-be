@@ -1,26 +1,50 @@
 openapi: 3.1.0
 info:
   title: May Flower Admin API
-  version: 0.1.0
-  description: Staff and management API (to be implemented by backend agent)
+  version: 0.2.0
+  description: Staff JWT API for orders, catalog, inventory, support, and AI copilot.
 servers:
   - url: http://localhost:3101/v1/admin
 paths:
   /auth/login:
     post:
-      summary: Staff login (planned)
+      summary: Staff login
       responses:
-        "501":
-          description: Not implemented yet
-  /products:
+        "200":
+          description: access + refresh tokens
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+  /me:
     get:
-      summary: List products for management (planned)
-      responses:
-        "501":
-          description: Not implemented yet
+      summary: Current staff profile
   /orders:
     get:
-      summary: Order inbox (planned)
-      responses:
-        "501":
-          description: Not implemented yet
+      summary: Order inbox
+  /orders/{id}:
+    get:
+      summary: Order detail
+  /orders/{id}/status:
+    patch:
+      summary: Transition order status (audited)
+  /products:
+    get:
+      summary: Products with variants and ATP
+  /inventory/low-stock:
+    get:
+      summary: Variants with available quantity ≤ 3
+  /variants/{id}/stock:
+    patch:
+      summary: Adjust variant ATP (ledger movement + audit)
+  /support/sessions:
+    get:
+      summary: Customer AI chat sessions
+  /support/sessions/{id}:
+    get:
+      summary: Session transcript
+  /assistant/stats:
+    get:
+      summary: KPI strip for copilot UI
+  /assistant/chat:
+    post:
+      summary: Staff copilot (OpenAI tools + DB fallback)
