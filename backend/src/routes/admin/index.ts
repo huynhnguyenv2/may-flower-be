@@ -5,6 +5,8 @@ import { errorPayload } from "../../lib/errors.js";
 import { requireRoles, requireStaffAuth } from "../../middleware/admin-auth.js";
 import * as adminCatalog from "../../services/admin-catalog.js";
 import * as adminOrders from "../../services/admin-orders.js";
+import * as adminSupport from "../../services/admin-support.js";
+import * as adminAssistant from "../../services/admin-assistant.js";
 import * as auth from "../../services/auth.js";
 import { AppError } from "../../lib/errors.js";
 
@@ -19,6 +21,18 @@ const refreshSchema = z.object({
 
 const statusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
+});
+
+const assistantChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(24),
 });
 
 export async function registerAdminRoutes(app: FastifyInstance) {
@@ -103,6 +117,49 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       "/products",
       { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
       async () => ({ data: await adminCatalog.listAdminProducts() }),
+    );
+
+    secured.get(
+      "/support/sessions",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async () => ({ data: await adminSupport.listSupportSessionsForAdmin() }),
+    );
+
+    secured.get<{ Params: { id: string } }>(
+      "/support/sessions/:id",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager) },
+      async (req, reply) => {
+        try {
+          return { data: await adminSupport.getSupportSessionForAdmin(req.params.id) };
+        } catch (e) {
+          if (e instanceof AppError) {
+            return reply.status(e.statusCode).send(errorPayload(e.code, e.message));
+          }
+          throw e;
+        }
+      },
+    );
+
+    secured.get(
+      "/assistant/stats",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async () => ({ data: await adminAssistant.staffAssistantStats() }),
+    );
+
+    secured.post(
+      "/assistant/chat",
+      { preHandler: requireRoles(StaffRole.owner, StaffRole.manager, StaffRole.florist) },
+      async (req, reply) => {
+        const parsed = assistantChatSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return reply.status(400).send(errorPayload("VALIDATION_ERROR", "Dữ liệu không hợp lệ"));
+        }
+        const data = await adminAssistant.staffAssistantReply(
+          { name: req.staffUser!.name, roles: req.staffUser!.roles },
+          parsed.data.messages,
+        );
+        return { data };
+      },
     );
   });
 }
